@@ -21,6 +21,8 @@ pub enum SwordState {
     Swinging {
         frame: usize,
     },
+    Swung,
+    Blocking,
     Cooldown {
         frame: usize,
     },
@@ -108,6 +110,7 @@ fn update(
     mut items_dropped: CompMut<ItemDropped>,
     player_indexes: Comp<PlayerIdx>,
     player_inventories: PlayerInventories,
+    player_inputs: Res<PlayerInputs>,
     mut player_events: ResMut<PlayerEvents>,
     mut commands: Commands,
 ) {
@@ -116,22 +119,39 @@ fn update(
             continue;
         };
 
-        // Helper to spawn a damage region for the sword attack
-        let mut spawn_damage_region = |pos: Vec3, size: Vec2, owner: Entity| {
-            commands.add(
-                move |mut entities: ResMut<Entities>,
-                      mut transforms: CompMut<Transform>,
-                      mut damage_regions: CompMut<DamageRegion>,
-                      mut damage_region_owners: CompMut<DamageRegionOwner>,
-                      mut lifetimes: CompMut<Lifetime>| {
-                    let entity = entities.create();
+        // Helper to spawn a damage region for the sword attack or a block region
+        let mut spawn_damage_region = |pos: Vec3, size: Vec2, owner: Entity, block: bool| {
+            if block {
+                commands.add(
+                    move |mut entities: ResMut<Entities>,
+                          mut transforms: CompMut<Transform>,
+                          mut block_regions: CompMut<BlockRegion>,
+                          mut block_region_owners: CompMut<BlockRegionOwner>,
+                          mut lifetimes: CompMut<Lifetime>| {
+                        let entity = entities.create();
 
-                    transforms.insert(entity, Transform::from_translation(pos));
-                    damage_regions.insert(entity, DamageRegion { size });
-                    damage_region_owners.insert(entity, DamageRegionOwner(owner));
-                    lifetimes.insert(entity, Lifetime::new(2.0 / 60.0));
-                },
-            );
+                        transforms.insert(entity, Transform::from_translation(pos));
+                        block_regions.insert(entity, BlockRegion { size });
+                        block_region_owners.insert(entity, BlockRegionOwner(owner));
+                        lifetimes.insert(entity, Lifetime::new(2.0 / 60.0));
+                    },
+                );
+            } else {
+                commands.add(
+                    move |mut entities: ResMut<Entities>,
+                          mut transforms: CompMut<Transform>,
+                          mut damage_regions: CompMut<DamageRegion>,
+                          mut damage_region_owners: CompMut<DamageRegionOwner>,
+                          mut lifetimes: CompMut<Lifetime>| {
+                        let entity = entities.create();
+
+                        transforms.insert(entity, Transform::from_translation(pos));
+                        damage_regions.insert(entity, DamageRegion { size });
+                        damage_region_owners.insert(entity, DamageRegionOwner(owner));
+                        lifetimes.insert(entity, Lifetime::new(2.0 / 60.0));
+                    },
+                );
+            }
         };
 
         let BuiltinElementKind::Sword {
@@ -152,6 +172,14 @@ fn update(
             .find_map(|x| x.filter(|x| x.inventory == entity))
         {
             let player = inventory.player;
+
+            let Some(player_idx) = player_indexes.get(player) else {
+                warn!("Couldn't find player.");
+                continue;
+            };
+
+            let player_control = &player_inputs.players[player_idx.0].control;
+
             let body = bodies.get_mut(entity).unwrap();
 
             // Deactivate collisions while being held
@@ -169,19 +197,55 @@ fn update(
             transform.translation = player_translation + offset;
             transform.rotation = Quat::IDENTITY;
 
-            // Reset the sword animation if we're not swinging it
-            if !matches!(sword.state, SwordState::Swinging { .. }) {
-                sprite.index = 4;
-            }
-
             let mut next_state = None;
             match &mut sword.state {
-                SwordState::Idle => (),
+                SwordState::Idle => {
+                    // Reset the sword animation if we're not swinging it
+                    sprite.index = 4;
+                }
+                SwordState::Blocking => {
+                    let offset = Vec3::new(20.0 * flip_factor, 10.0, 1.0);
+                    transform.translation = player_translation + offset;
+                    if player_control.move_direction.y < -0.5 {
+                        sprite.index = 8;
+                        //transform.rotation = Quat::from_rotation_z(90.0);
+                        spawn_damage_region(
+                            Vec3::new(
+                                player_translation.x + 10.0 * flip_factor,
+                                player_translation.y + 10.0,
+                                player_translation.z,
+                            ),
+                            Vec2::new(30.0, 60.0),
+                            player,
+                            true,
+                        );
+                    } else {
+                        next_state = Some(SwordState::Idle);
+                    }
+                }
+                SwordState::Swung => {
+                    // Reset the sword animation if we're not swinging it
+                    sprite.index = 8 + 2;
+                    if player_control.shoot_pressed {
+                        spawn_damage_region(
+                            Vec3::new(
+                                player_translation.x + 20.0 * flip_factor,
+                                player_translation.y - 15.0,
+                                player_translation.z,
+                            ),
+                            Vec2::new(40.0, 10.0),
+                            player,
+                            false,
+                        )
+                    } else {
+                        // Go to cooldown frames
+                        next_state = Some(SwordState::Cooldown { frame: 0 })
+                    };
+                }
                 SwordState::Swinging { frame } => {
                     // If we're at the end of the swinging animation
                     if sprite.index >= 11 {
-                        // Go to cooldown frames
-                        next_state = Some(SwordState::Cooldown { frame: 0 });
+                        next_state = Some(SwordState::Swung);
 
                     // If we're still swinging
                     } else {
@@ -199,6 +263,7 @@ fn update(
                             ),
                             Vec2::new(30.0, 70.0),
                             player,
+                            false,
                         ),
                         1 => spawn_damage_region(
                             Vec3::new(
@@ -208,6 +273,7 @@ fn update(
                             ),
                             Vec2::new(40.0, 50.0),
                             player,
+                            false,
                         ),
                         2 => spawn_damage_region(
                             Vec3::new(
@@ -217,6 +283,7 @@ fn update(
                             ),
                             Vec2::new(40.0, 50.0),
                             player,
+                            false,
                         ),
                         _ => (),
                     }
@@ -224,6 +291,8 @@ fn update(
                     *frame += 1;
                 }
                 SwordState::Cooldown { frame } => {
+                    // Reset the sword animation if we're not swinging it
+                    sprite.index = 4;
                     if *frame >= *cooldown_frames {
                         next_state = Some(SwordState::Idle);
                     } else {
@@ -234,6 +303,10 @@ fn update(
 
             if let Some(next) = next_state {
                 sword.state = next;
+            }
+
+            if player_control.move_direction.y < -0.5 && matches!(sword.state, SwordState::Idle) {
+                sword.state = SwordState::Blocking;
             }
 
             // If the item is being used

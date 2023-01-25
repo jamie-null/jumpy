@@ -33,12 +33,36 @@ impl DamageRegion {
 #[ulid = "01GP1X4NM7GMEKKZ4FEZ1RK3T0"]
 pub struct DamageRegionOwner(pub Entity);
 
+/// A rectangular block region.
+///
+#[derive(Debug, Clone, Default, TypeUlid)]
+#[ulid = "01GQNJ65V1NHZFVXHF1JQD5Z72"]
+pub struct BlockRegion {
+    /// The size of the damage region in pixels
+    pub size: Vec2,
+}
+
+impl BlockRegion {
+    /// Get the collision rectangle of this damage region, given it's transform.
+    pub fn collider_rect(&self, position: Vec3) -> Rect {
+        Rect::new(position.x, position.y, self.size.x, self.size.y)
+    }
+}
+
+/// A component indicating the player protected by a blocking region
+///
+#[derive(Debug, Clone, TypeUlid)]
+#[ulid = "01GQNJHQE35VPDWA6HQY9DE0D4"]
+pub struct BlockRegionOwner(pub Entity);
+
 /// System that will eliminate players that are intersecting with a damage region.
 fn kill_players_in_damage_region(
     entities: Res<Entities>,
     player_indexes: Comp<PlayerIdx>,
     transforms: Comp<Transform>,
     damage_regions: Comp<DamageRegion>,
+    block_regions: Comp<BlockRegion>,
+    block_region_owners: Comp<BlockRegionOwner>,
     damage_region_owners: Comp<DamageRegionOwner>,
     bodies: Comp<KinematicBody>,
     mut player_events: ResMut<PlayerEvents>,
@@ -59,7 +83,27 @@ fn kill_players_in_damage_region(
 
             let damage_rect = damage_region.collider_rect(transform.translation);
             if player_rect.overlaps(&damage_rect) {
-                player_events.kill(player_ent);
+                let mut kill = true;
+
+                for (blk, (block_region, transform)) in
+                    entities.iter_with((&block_regions, &transforms))
+                {
+                    let blk_owner = block_region_owners.get(blk);
+                    if let Some(blk_owner) = blk_owner {
+                        if blk_owner.0 == player_ent {
+                            let block_rect = block_region.collider_rect(transform.translation);
+                            if block_rect.overlaps(&damage_rect)
+                                && player_rect.overlaps(&block_rect)
+                            {
+                                kill = false;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if kill {
+                    player_events.kill(player_ent);
+                }
             }
         }
     }
