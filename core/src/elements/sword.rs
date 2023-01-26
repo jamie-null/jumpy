@@ -180,10 +180,13 @@ fn update(
 
             let player_control = &player_inputs.players[player_idx.0].control;
 
-            let body = bodies.get_mut(entity).unwrap();
+            let [body, player_body] = bodies.get_many_mut([entity, player]).unwrap_many();
+            
+            //let body = bodies.get_mut(entity).unwrap();
 
             // Deactivate collisions while being held
             body.is_deactivated = true;
+            //let player_body = bodies.get_mut(player).unwrap();
 
             // Flip the sprite to match the player orientation
             let flip = sprites.get(player).unwrap().flip_x;
@@ -305,7 +308,7 @@ fn update(
                 sword.state = next;
             }
 
-            if player_control.move_direction.y < -0.5 && matches!(sword.state, SwordState::Idle) {
+            if player_control.move_direction.y < -0.5 && matches!(sword.state, SwordState::Idle) && player_body.is_on_ground {
                 sword.state = SwordState::Blocking;
             }
 

@@ -61,6 +61,7 @@ fn kill_players_in_damage_region(
     player_indexes: Comp<PlayerIdx>,
     transforms: Comp<Transform>,
     damage_regions: Comp<DamageRegion>,
+    mut camera_shake: ResMut<CameraTraumaEvents>,
     block_regions: Comp<BlockRegion>,
     block_region_owners: Comp<BlockRegionOwner>,
     damage_region_owners: Comp<DamageRegionOwner>,
@@ -96,6 +97,7 @@ fn kill_players_in_damage_region(
                                 && player_rect.overlaps(&block_rect)
                             {
                                 kill = false;
+                                camera_shake.send(0.5);
                                 break;
                             }
                         }
