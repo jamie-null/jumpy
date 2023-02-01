@@ -19,6 +19,27 @@ fn editor_size_default() -> Vec2 {
     Vec2::splat(16.0)
 }
 
+#[derive(BonesBevyAsset, Deserialize, Clone, Debug, Default, TypeUlid)]
+#[ulid = "01GR1W2B3S7DM5QEY07RSJH2G0"]
+#[asset_id = "bullet"]
+#[serde(deny_unknown_fields)]
+pub struct BulletMeta {
+    #[serde(default)]
+    pub body_offset: Vec2,
+
+    pub velocity: Vec2,
+    pub body_size: Vec2,
+    pub atlas: Handle<Atlas>,
+
+    pub lifetime: f32,
+    pub explosion_fps: f32,
+    pub explosion_volume: f32,
+    pub explosion_lifetime: f32,
+    pub explosion_frames: usize,
+    pub explosion_atlas: Handle<Atlas>,
+    pub explosion_sound: Handle<AudioSource>,
+}
+
 /// The kind of built-in
 #[derive(BonesBevyAssetLoad, Deserialize, Clone, Debug, Default)]
 #[serde(deny_unknown_fields)]
@@ -187,5 +208,31 @@ pub enum BuiltinElementKind {
         angular_velocity: f32,
         #[serde(default)]
         arm_delay: f32,
+    },
+    Musket {
+        #[serde(default)]
+        body_offset: Vec2,
+        #[serde(default)]
+        grab_offset: Vec2,
+
+        body_size: Vec2,
+        bounciness: f32,
+        can_rotate: bool,
+        throw_velocity: Vec2,
+        angular_velocity: f32,
+        atlas: Handle<Atlas>,
+
+        max_ammo: usize,
+        cooldown_frames: usize,
+        bullet_meta: Handle<BulletMeta>,
+
+        shoot_fps: f32,
+        shoot_lifetime: f32,
+        shoot_frames: usize,
+        shoot_sound_volume: f32,
+        empty_shoot_sound_volume: f32,
+        shoot_atlas: Handle<Atlas>,
+        shoot_sound: Handle<AudioSource>,
+        empty_shoot_sound: Handle<AudioSource>,
     },
 }
