@@ -22,6 +22,7 @@ pub struct LitKickBomb {
 }
 
 fn hydrate(
+    game_meta: Res<CoreMetaArc>,
     mut items: CompMut<Item>,
     mut entities: ResMut<Entities>,
     mut bodies: CompMut<KinematicBody>,
@@ -79,7 +80,7 @@ fn hydrate(
                 KinematicBody {
                     size: *body_size,
                     offset: *body_offset,
-                    gravity: 1.0,
+                    gravity: game_meta.physics.gravity,
                     has_mass: true,
                     has_friction: true,
                     can_rotate: *can_rotate,
@@ -105,7 +106,8 @@ fn update_idle_kick_bombs(
     element_assets: BevyAssets<ElementMeta>,
     mut items_dropped: CompMut<ItemDropped>,
     mut animated_sprites: CompMut<AnimatedSprite>,
-    mut attachments: CompMut<Attachment>,
+    mut attachments: CompMut<PlayerBodyAttachment>,
+    mut player_layers: CompMut<PlayerLayers>,
 ) {
     for (entity, (kick_bomb, element_handle)) in
         entities.iter_with((&mut idle_bombs, &element_handles))
@@ -121,6 +123,7 @@ fn update_idle_kick_bombs(
             fuse_sound,
             fuse_sound_volume,
             throw_velocity,
+            fin_anim,
             ..
         } = &element_meta.builtin else {
             unreachable!();
@@ -134,15 +137,18 @@ fn update_idle_kick_bombs(
             let player = inventory.player;
             let body = bodies.get_mut(entity).unwrap();
 
+            player_layers.get_mut(player).unwrap().fin_anim = *fin_anim;
+
             // Deactivate held items
             body.is_deactivated = true;
 
             // Attach to the player
             attachments.insert(
                 entity,
-                Attachment {
-                    entity: player,
+                PlayerBodyAttachment {
+                    player,
                     offset: grab_offset.extend(1.0),
+                    sync_animation: false,
                 },
             );
 
@@ -152,8 +158,7 @@ fn update_idle_kick_bombs(
                 audio_events.play(fuse_sound.clone(), *fuse_sound_volume);
                 items_used.remove(entity);
                 let animated_sprite = animated_sprites.get_mut(entity).unwrap();
-                animated_sprite.start = 3;
-                animated_sprite.end = 5;
+                animated_sprite.frames = Arc::from([3, 4, 5]);
                 animated_sprite.repeat = true;
                 animated_sprite.fps = 8.0;
                 body.angular_velocity = *angular_velocity;
@@ -193,7 +198,8 @@ fn update_idle_kick_bombs(
             body.is_spawning = true;
 
             let transform = transforms.get_mut(entity).unwrap();
-            transform.translation = player_translation;
+            transform.translation =
+                player_translation + (*grab_offset * horizontal_flip_factor).extend(0.0);
         }
     }
 }
@@ -212,7 +218,8 @@ fn update_lit_kick_bombs(
     mut bodies: CompMut<KinematicBody>,
     mut items_dropped: CompMut<ItemDropped>,
     mut hydrated: CompMut<MapElementHydrated>,
-    mut attachments: CompMut<Attachment>,
+    mut attachments: CompMut<PlayerBodyAttachment>,
+    mut player_layers: CompMut<PlayerLayers>,
     player_inventories: PlayerInventories,
 
     mut commands: Commands,
@@ -238,6 +245,7 @@ fn update_lit_kick_bombs(
             explosion_fps,
             explosion_frames,
             arm_delay,
+            fin_anim,
             ..
         } = &element_meta.builtin else {
             unreachable!();
@@ -254,6 +262,7 @@ fn update_lit_kick_bombs(
         {
             let player = inventory.player;
             let body = bodies.get_mut(entity).unwrap();
+            player_layers.get_mut(player).unwrap().fin_anim = *fin_anim;
 
             // Deactivate held items
             body.is_deactivated = true;
@@ -261,9 +270,10 @@ fn update_lit_kick_bombs(
             // Attach to the player
             attachments.insert(
                 entity,
-                Attachment {
-                    entity: player,
+                PlayerBodyAttachment {
+                    player,
                     offset: grab_offset.extend(1.0),
+                    sync_animation: false,
                 },
             );
         }
@@ -324,7 +334,8 @@ fn update_lit_kick_bombs(
             body.is_spawning = true;
 
             let transform = transforms.get_mut(entity).unwrap();
-            transform.translation = player_translation;
+            transform.translation =
+                player_translation + (*grab_offset * horizontal_flip_factor).extend(0.0);
         }
 
         // If it's time to explode
@@ -377,8 +388,7 @@ fn update_lit_kick_bombs(
                     animated_sprites.insert(
                         ent,
                         AnimatedSprite {
-                            start: 0,
-                            end: explosion_frames,
+                            frames: (0..explosion_frames).collect(),
                             fps: explosion_fps,
                             repeat: false,
                             ..default()

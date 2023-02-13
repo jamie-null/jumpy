@@ -53,6 +53,7 @@ pub enum BuiltinElementKind {
     Grenade {
         body_size: Vec2,
         body_offset: Vec2,
+        fin_anim: Key,
         grab_offset: Vec2,
         damage_region_size: Vec2,
         damage_region_lifetime: f32,
@@ -113,6 +114,7 @@ pub enum BuiltinElementKind {
         sound: Handle<AudioSource>,
         sound_volume: f32,
         body_size: Vec2,
+        fin_anim: Key,
         #[serde(default)]
         body_offset: Vec2,
         #[serde(default)]
@@ -133,6 +135,9 @@ pub enum BuiltinElementKind {
         breaking_anim_fps: f32,
 
         break_sound: Handle<AudioSource>,
+        break_sound_volume: f32,
+        bounce_sound: Handle<AudioSource>,
+        bounce_sound_volume: f32,
 
         throw_velocity: Vec2,
 
@@ -141,6 +146,10 @@ pub enum BuiltinElementKind {
         grab_offset: Vec2,
         // How long to wait before despawning a thrown crate, if it hans't it anything yet.
         break_timeout: f32,
+        bounciness: f32,
+        fin_anim: Key,
+        crate_break_state_1: usize,
+        crate_break_state_2: usize,
     },
     /// The mine item
     Mine {
@@ -149,26 +158,25 @@ pub enum BuiltinElementKind {
         damage_region_size: Vec2,
         damage_region_lifetime: f32,
         explosion_atlas: Handle<Atlas>,
-        explosion_anim_frames: usize,
-        explosion_anim_fps: f32,
+        explosion_lifetime: f32,
+        explosion_frames: usize,
+        explosion_fps: f32,
+        explosion_volume: f32,
+        explosion_sound: Handle<AudioSource>,
 
-        arm_sound: String,
-        armed_anim_start: usize,
-        armed_anim_end: usize,
-        armed_anim_fps: f32,
-        #[serde(skip)]
-        arm_sound_handle: Handle<AudioSource>,
-        explosion_sound: String,
-        #[serde(skip)]
-        explosion_sound_handle: Handle<AudioSource>,
-
-        throw_velocity: Vec2,
         /// The delay after throwing the mine, before it becomes armed and will blow up on contact.
         arm_delay: f32,
+        armed_frames: usize,
+        armed_fps: f32,
+        arm_sound_volume: f32,
+        arm_sound: Handle<AudioSource>,
 
+        throw_velocity: Vec2,
         body_size: Vec2,
         body_offset: Vec2,
         grab_offset: Vec2,
+        fin_anim: Key,
+        bounciness: f32,
     },
 
     StompBoots {
@@ -182,6 +190,7 @@ pub enum BuiltinElementKind {
     KickBomb {
         body_size: Vec2,
         body_offset: Vec2,
+        fin_anim: Key,
         grab_offset: Vec2,
         damage_region_size: Vec2,
         damage_region_lifetime: f32,
@@ -214,6 +223,7 @@ pub enum BuiltinElementKind {
         body_offset: Vec2,
         #[serde(default)]
         grab_offset: Vec2,
+        fin_anim: Key,
 
         body_size: Vec2,
         bounciness: f32,

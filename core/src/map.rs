@@ -355,13 +355,13 @@ fn create_nav_graph(meta: &MapMeta) -> Arc<NavGraphInner> {
             let above2 = above1.above();
             let above3 = above2.above();
 
-            // let above_l = above3.left();
-            // let above_r = above3.right();
+             let above_l = above3.left();
+             let above_r = above3.right();
 
             if graph.contains_node(above1) && graph.contains_node(above2) {
                 let contains_above = graph.contains_node(above3);
-                // let contains_above_r = graph.contains_node(above_r);
-                // let contains_above_l = above_l.map(|x| graph.contains_node(x)).unwrap_or_default();
+                 //let contains_above_r = graph.contains_node(above_r);
+                 //let contains_above_l = above_l.map(|x| graph.contains_node(x)).unwrap_or_default();
 
                 if contains_above {
                     // Jump staight up
@@ -380,40 +380,40 @@ fn create_nav_graph(meta: &MapMeta) -> Arc<NavGraphInner> {
                     );
                 }
 
-                // // Jump Right
-                // if graph.contains_node(above_r) {
-                //     graph.add_edge(
-                //         node,
-                //         above3,
-                //         NavGraphEdge {
-                //             inputs: [PlayerControl {
-                //                 move_direction: vec2(1.0, 0.0),
-                //                 jump_just_pressed: true,
-                //                 jump_pressed: true,
-                //                 ..default()
-                //             }]
-                //             .into(),
-                //             distance: node.distance(&above_r),
-                //         },
-                //     );
-                // }
-                // // Jump up and left
-                // else if above_l.map(|x| graph.contains_node(x)).unwrap_or_default() {
-                // graph.add_edge(
-                //     node,
-                //     above3,
-                //     NavGraphEdge {
-                //         inputs: [PlayerControl {
-                //             move_direction: vec2(-1.0, 0.0),
-                //             jump_just_pressed: true,
-                //             jump_pressed: true,
-                //             ..default()
-                //         }]
-                //         .into(),
-                //         distance: node.distance(&above_l.unwrap()),
-                //     },
-                // );
-                // }
+                // Jump Right
+                 if graph.contains_node(above_r) {
+                     graph.add_edge(
+                         node,
+                         above3,
+                         NavGraphEdge {
+                             inputs: [PlayerControl {
+                                 move_direction: vec2(1.0, 0.0),
+                                 jump_just_pressed: true,
+                                 jump_pressed: true,
+                                 ..default()
+                             }]
+                             .into(),
+                             distance: node.distance(&above_r),
+                         },
+                     );
+                 }
+                 // Jump up and left
+                 else if above_l.map(|x| graph.contains_node(x)).unwrap_or_default() {
+                 graph.add_edge(
+                     node,
+                     above3,
+                     NavGraphEdge {
+                         inputs: [PlayerControl {
+                             move_direction: vec2(-1.0, 0.0),
+                             jump_just_pressed: true,
+                             jump_pressed: true,
+                             ..default()
+                         }]
+                         .into(),
+                         distance: node.distance(&above_l.unwrap()),
+                     },
+                 );
+                 }
             }
         }
 

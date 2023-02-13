@@ -14,15 +14,13 @@ physics:
   terminal_velocity: 30
   friction_lerp: 0.85
   stop_threshold: 1.0
-  gravity: 1
+  gravity: 0.6
 
 players:
-  - player/skins/catty/catty.player.yaml
   - player/skins/fishy/fishy.player.yaml
-  - player/skins/lionfishy/lionfishy.player.yaml
-  - player/skins/orcy/orcy.player.yaml
   - player/skins/pescy/pescy.player.yaml
   - player/skins/sharky/sharky.player.yaml
+  - player/skins/orcy/orcy.player.yaml
 
 stable_maps:
   - map/levels/level1.map.yaml
