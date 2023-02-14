@@ -126,6 +126,7 @@ pub struct NavGraphEdge {
 }
 
 fn spawn_map(
+    mut commands: Commands,
     mut entities: ResMut<Entities>,
     mut clear_color: ResMut<ClearColor>,
     map_handle: Res<MapHandle>,
@@ -135,7 +136,7 @@ fn spawn_map(
     mut tile_layers: CompMut<TileLayer>,
     mut transforms: CompMut<Transform>,
     mut element_handles: CompMut<ElementHandle>,
-    mut tile_collisions: CompMut<TileCollision>,
+    mut tile_collisions: CompMut<TileCollisionKind>,
     mut parallax_bg_sprites: CompMut<ParallaxBackgroundSprite>,
     mut sprites: CompMut<Sprite>,
     mut nav_graph: ResMut<NavGraph>,
@@ -198,9 +199,9 @@ fn spawn_map(
                     tile_collisions.insert(
                         tile_ent,
                         if tile_meta.jump_through {
-                            TileCollision::JUMP_THROUGH
+                            TileCollisionKind::JUMP_THROUGH
                         } else {
-                            TileCollision::SOLID
+                            TileCollisionKind::SOLID
                         },
                     );
                 }
@@ -225,6 +226,11 @@ fn spawn_map(
             }
         }
     }
+
+    // Update collision world with map tiles
+    commands.add(|mut collision_world: CollisionWorld| {
+        collision_world.update_tiles();
+    });
 }
 
 fn handle_out_of_bounds_players_and_items(
