@@ -5,7 +5,7 @@ use std::{
 
 use ::bevy::utils::HashSet;
 
-use crate::prelude::{collisions::TileCollision, *};
+use crate::prelude::{collisions::TileCollisionKind, *};
 
 pub fn install(session: &mut GameSession) {
     session
