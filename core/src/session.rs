@@ -49,7 +49,7 @@ impl GameSession {
         // Initialize bevy world resource with an empty bevy world
         session.world.init_resource::<BevyWorld>();
         // Set the map
-        session.world.resource().insert(MapHandle(info.map));
+        session.world.insert_resource(MapHandle(info.map));
 
         // Set player initial character selections
         let player_inputs = session.world.resource::<PlayerInputs>();
@@ -70,7 +70,7 @@ impl GameSession {
     ///
     /// This may be used to change game metadata in the middle of the session.
     pub fn set_metadata(&mut self, metadata: Arc<CoreMeta>) {
-        self.world.resource().insert(CoreMetaArc(metadata));
+        self.world.insert_resource(CoreMetaArc(metadata));
     }
 
     /// Provide a closure to update the game inputs.
