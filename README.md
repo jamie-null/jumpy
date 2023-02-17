@@ -1,6 +1,6 @@
 # Fish Folk: Jumpy
 
-[![Build Status](https://img.shields.io/github/workflow/status/fishfolk/jumpy/Continuous%20integration?logo=github&labelColor=1e1c24&color=8bcfcf)](https://github.com/fishfolk/jumpy/actions) [![Documentation](https://img.shields.io/badge/documentation-fishfolk.github.io-green.svg?labelColor=1e1c24&color=f3ee7a)](https://fishfolk.github.io/jumpy/book) [![License](https://img.shields.io/badge/License-MIT%20or%20Apache%202-green.svg?label=license&labelColor=1e1c24&color=34925e)](./LICENSE) [![Discord](https://img.shields.io/badge/chat-on%20discord-green.svg?logo=discord&logoColor=fff&labelColor=1e1c24&color=8d5b3f)](https://discord.gg/4smxjcheE5)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/fishfolk/jumpy/ci.yml?logo=github&labelColor=1e1c24&color=8bcfcf)](https://github.com/fishfolk/jumpy/actions) [![Documentation](https://img.shields.io/badge/documentation-fishfolk.github.io-green.svg?labelColor=1e1c24&color=f3ee7a)](https://fishfolk.github.io/jumpy/book) [![License](https://img.shields.io/badge/License-MIT%20or%20Apache%202-green.svg?label=license&labelColor=1e1c24&color=34925e)](./LICENSE) [![Discord](https://img.shields.io/badge/chat-on%20discord-green.svg?logo=discord&logoColor=fff&labelColor=1e1c24&color=8d5b3f)](https://discord.gg/4smxjcheE5)
 
 ![Fish Folk: Jumpy Preview](https://user-images.githubusercontent.com/24392180/151969075-399e9fea-e2de-4340-96a4-0a0e5b79c281.gif)
 
@@ -43,6 +43,14 @@ Before committing and opening a PR, please run the following commands and follow
 
 1. `cargo clippy -- -W clippy::correctness -D warnings`
 2. `cargo fmt`
+
+### Development Build Profiles
+
+By default, Jumpy will build without optimizations for the `jumpy_core` and `jumpy` crates. This helps reduce re-compile times at the expense of some runtime performance. If you need increased runtime performance during development, you can build with the `--profile dev-optimized` option, to optimize all of the crates:
+
+```bash
+cargo r --profile dev-optimized
+```
 
 ### Learning Materials
 

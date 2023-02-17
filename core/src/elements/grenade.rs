@@ -55,8 +55,7 @@ fn hydrate(
 
         if let BuiltinElementKind::Grenade {
             atlas,
-            body_size,
-            body_offset,
+            body_diameter,
             can_rotate,
             bounciness,
             ..
@@ -81,8 +80,9 @@ fn hydrate(
             bodies.insert(
                 entity,
                 KinematicBody {
-                    size: *body_size,
-                    offset: *body_offset,
+                    shape: ColliderShape::Circle {
+                        diameter: *body_diameter,
+                    },
                     has_mass: true,
                     has_friction: true,
                     can_rotate: *can_rotate,
@@ -107,7 +107,8 @@ fn update_idle_grenades(
     mut bodies: CompMut<KinematicBody>,
     mut items_used: CompMut<ItemUsed>,
     mut items_dropped: CompMut<ItemDropped>,
-    mut attachments: CompMut<Attachment>,
+    mut attachments: CompMut<PlayerBodyAttachment>,
+    mut player_layers: CompMut<PlayerLayers>,
     player_inventories: PlayerInventories,
     mut commands: Commands,
 ) {
@@ -125,6 +126,7 @@ fn update_idle_grenades(
             fuse_sound,
             fuse_sound_volume,
             throw_velocity,
+            fin_anim,
             ..
         } = &element_meta.builtin else {
             unreachable!();
@@ -136,6 +138,8 @@ fn update_idle_grenades(
             .find_map(|x| x.filter(|x| x.inventory == entity))
         {
             let player = inventory.player;
+            let player_layers = player_layers.get_mut(player).unwrap();
+            player_layers.fin_anim = *fin_anim;
             let body = bodies.get_mut(entity).unwrap();
 
             // Deactivate held items
@@ -144,9 +148,10 @@ fn update_idle_grenades(
             // Attach to the player
             attachments.insert(
                 entity,
-                Attachment {
-                    entity: player,
+                PlayerBodyAttachment {
+                    player,
                     offset: grab_offset.extend(0.1),
+                    sync_animation: false,
                 },
             );
 
@@ -156,8 +161,7 @@ fn update_idle_grenades(
                 audio_events.play(fuse_sound.clone(), *fuse_sound_volume);
                 items_used.remove(entity);
                 let animated_sprite = animated_sprites.get_mut(entity).unwrap();
-                animated_sprite.start = 3;
-                animated_sprite.end = 5;
+                animated_sprite.frames = Arc::from([3, 4, 5]);
                 animated_sprite.repeat = true;
                 animated_sprite.fps = 8.0;
                 body.angular_velocity = *angular_velocity;
@@ -197,7 +201,8 @@ fn update_idle_grenades(
             body.is_spawning = true;
 
             let transform = transforms.get_mut(entity).unwrap();
-            transform.translation = player_translation;
+            transform.translation =
+                player_translation + (*grab_offset * horizontal_flip_factor).extend(0.0);
         }
     }
 }
@@ -213,7 +218,9 @@ fn update_lit_grenades(
     mut bodies: CompMut<KinematicBody>,
     mut items_dropped: CompMut<ItemDropped>,
     mut hydrated: CompMut<MapElementHydrated>,
-    mut attachments: CompMut<Attachment>,
+    mut attachments: CompMut<PlayerBodyAttachment>,
+    mut emote_regions: CompMut<EmoteRegion>,
+    mut player_layers: CompMut<PlayerLayers>,
     player_inventories: PlayerInventories,
     mut commands: Commands,
 ) {
@@ -237,6 +244,7 @@ fn update_lit_grenades(
             explosion_atlas,
             explosion_fps,
             explosion_frames,
+            fin_anim,
             ..
         } = &element_meta.builtin else {
             unreachable!();
@@ -245,12 +253,27 @@ fn update_lit_grenades(
         grenade.age += 1.0 / crate::FPS;
         let spawner = grenade.spawner;
 
+        if !emote_regions.contains(entity) {
+            emote_regions.insert(
+                entity,
+                EmoteRegion {
+                    direction_sensitive: true,
+                    size: *damage_region_size * 2.0,
+                    emote: Emote::Alarm,
+                    active: true,
+                },
+            );
+        }
+        let emote_region = emote_regions.get_mut(entity).unwrap();
+
         // If the item is being held
         if let Some(inventory) = player_inventories
             .iter()
             .find_map(|x| x.filter(|x| x.inventory == entity))
         {
             let player = inventory.player;
+            let layers = player_layers.get_mut(player).unwrap();
+            layers.fin_anim = *fin_anim;
             let body = bodies.get_mut(entity).unwrap();
 
             // Deactivate held items
@@ -259,11 +282,18 @@ fn update_lit_grenades(
             // Attach to the player
             attachments.insert(
                 entity,
-                Attachment {
-                    entity: player,
+                PlayerBodyAttachment {
+                    player,
                     offset: grab_offset.extend(1.0),
+                    sync_animation: false,
                 },
             );
+
+            emote_region.active = false;
+
+        // If the item is not being held
+        } else {
+            emote_region.active = true;
         }
 
         // If the item was dropped
@@ -293,7 +323,8 @@ fn update_lit_grenades(
             body.is_spawning = true;
 
             let transform = transforms.get_mut(entity).unwrap();
-            transform.translation = player_translation;
+            transform.translation =
+                player_translation + (*grab_offset * horizontal_flip_factor).extend(0.0);
         }
 
         // If it's time to explode
@@ -346,8 +377,7 @@ fn update_lit_grenades(
                     animated_sprites.insert(
                         ent,
                         AnimatedSprite {
-                            start: 0,
-                            end: explosion_frames,
+                            frames: (0..explosion_frames).collect(),
                             fps: explosion_fps,
                             repeat: false,
                             ..default()

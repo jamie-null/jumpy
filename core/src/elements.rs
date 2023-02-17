@@ -1,12 +1,15 @@
 use crate::prelude::*;
 
 pub mod crab;
+pub mod crate_item;
 pub mod decoration;
 pub mod grenade;
 pub mod kick_bomb;
+pub mod mine;
 pub mod musket;
 pub mod player_spawner;
 pub mod sproinger;
+pub mod stomp_boots;
 pub mod sword;
 
 /// Marker component added to map elements that have been hydrated.
@@ -27,6 +30,8 @@ pub fn install(session: &mut GameSession) {
     grenade::install(session);
     crab::install(session);
     kick_bomb::install(session);
-
+    mine::install(session);
     musket::install(session);
+    stomp_boots::install(session);
+    crate_item::install(session);
 }

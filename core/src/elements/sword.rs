@@ -59,7 +59,6 @@ fn hydrate(
         if let BuiltinElementKind::Sword {
             atlas,
             body_size,
-            body_offset,
             can_rotate,
             bounciness,
             ..
@@ -78,8 +77,7 @@ fn hydrate(
             bodies.insert(
                 entity,
                 KinematicBody {
-                    size: *body_size,
-                    offset: *body_offset,
+                    shape: ColliderShape::Rectangle { size: *body_size },
                     has_mass: true,
                     has_friction: true,
                     can_rotate: *can_rotate,
@@ -102,17 +100,19 @@ fn update(
     element_assets: BevyAssets<ElementMeta>,
     collision_world: CollisionWorld,
     mut audio_events: ResMut<AudioEvents>,
-    mut transforms: CompMut<Transform>,
     mut swords: CompMut<Sword>,
     mut sprites: CompMut<AtlasSprite>,
     mut bodies: CompMut<KinematicBody>,
     mut items_used: CompMut<ItemUsed>,
     mut items_dropped: CompMut<ItemDropped>,
+    mut attachments: CompMut<PlayerBodyAttachment>,
     player_indexes: Comp<PlayerIdx>,
     player_inventories: PlayerInventories,
     player_inputs: Res<PlayerInputs>,
     mut player_events: ResMut<PlayerEvents>,
     mut commands: Commands,
+    mut player_layers: CompMut<PlayerLayers>,
+    mut transforms: CompMut<Transform>,
 ) {
     for (entity, (sword, element_handle)) in entities.iter_with((&mut swords, &element_handles)) {
         let Some(element_meta) = element_assets.get(&element_handle.get_bevy_handle()) else {
@@ -158,9 +158,11 @@ fn update(
             cooldown_frames,
             sound,
             sound_volume,
-            arm_delay,
+            grab_offset,
             throw_velocity,
             angular_velocity,
+            fin_anim,
+            killing_speed,
             ..
         } = &element_meta.builtin else {
             unreachable!();
@@ -182,23 +184,36 @@ fn update(
 
             let [body, player_body] = bodies.get_many_mut([entity, player]).unwrap_many();
             
-            //let body = bodies.get_mut(entity).unwrap();
 
             // Deactivate collisions while being held
             body.is_deactivated = true;
-            //let player_body = bodies.get_mut(player).unwrap();
 
             // Flip the sprite to match the player orientation
-            let flip = sprites.get(player).unwrap().flip_x;
             let sprite = sprites.get_mut(entity).unwrap();
-            sprite.flip_x = flip;
-            let flip_factor = if flip { -1.0 } else { 1.0 };
-
             let player_translation = transforms.get(player).unwrap().translation;
             let transform = transforms.get_mut(entity).unwrap();
-            let offset = Vec3::new(13.0 * flip_factor, 21.0, 1.0);
-            transform.translation = player_translation + offset;
-            transform.rotation = Quat::IDENTITY;
+            let flip = sprite.flip_x;
+            let flip_factor = if flip { -1.0 } else { 1.0 };
+
+            let player_layer = player_layers.get_mut(player).unwrap();
+            player_layer.fin_anim = *fin_anim;
+
+            // Deactivate collisions while being held
+            body.is_deactivated = true;
+
+            attachments.insert(
+                entity,
+                PlayerBodyAttachment {
+                    player,
+                    offset: grab_offset.extend(1.0),
+                    sync_animation: false,
+                },
+            );
+
+            // Reset the sword animation if we're not swinging it
+            if !matches!(sword.state, SwordState::Swinging { .. }) {
+                sprite.index = 4;
+            }
 
             let mut next_state = None;
             match &mut sword.state {
@@ -248,7 +263,9 @@ fn update(
                 SwordState::Swinging { frame } => {
                     // If we're at the end of the swinging animation
                     if sprite.index >= 11 {
-                        next_state = Some(SwordState::Swung);
+                        player_layer.fin_offset = Vec2::ZERO;
+                        // Go to cooldown frames
+                        next_state = Some(SwordState::Cooldown { frame: 0 });
 
                     // If we're still swinging
                     } else {
@@ -258,36 +275,46 @@ fn update(
 
                     // TODO: Move all these constants to the builtin item config
                     match *frame / 3 {
-                        0 => spawn_damage_region(
-                            Vec3::new(
-                                player_translation.x + 20.0 * flip_factor,
-                                player_translation.y + 20.0,
-                                player_translation.z,
-                            ),
-                            Vec2::new(30.0, 70.0),
-                            player,
-                            false,
-                        ),
-                        1 => spawn_damage_region(
-                            Vec3::new(
-                                player_translation.x + 25.0 * flip_factor,
-                                player_translation.y + 20.0,
-                                player_translation.z,
-                            ),
-                            Vec2::new(40.0, 50.0),
-                            player,
-                            false,
-                        ),
-                        2 => spawn_damage_region(
-                            Vec3::new(
-                                player_translation.x + 20.0 * flip_factor,
-                                player_translation.y,
-                                player_translation.z,
-                            ),
-                            Vec2::new(40.0, 50.0),
-                            player,
-                            false,
-                        ),
+                        0 => {
+                            spawn_damage_region(
+                                Vec3::new(
+                                    player_translation.x + 20.0 * flip_factor,
+                                    player_translation.y + 20.0,
+                                    player_translation.z,
+                                ),
+                                Vec2::new(30.0, 70.0),
+                                player,
+                                false,
+                            );
+
+                            player_layer.fin_offset = vec2(-1.0, 2.0);
+                        }
+                        1 => {
+                            spawn_damage_region(
+                                Vec3::new(
+                                    player_translation.x + 25.0 * flip_factor,
+                                    player_translation.y + 20.0,
+                                    player_translation.z,
+                                ),
+                                Vec2::new(40.0, 50.0),
+                                player,
+                                false,
+                            );
+                            player_layer.fin_offset = vec2(0.0, -1.0);
+                        }
+                        2 => {
+                            spawn_damage_region(
+                                Vec3::new(
+                                    player_translation.x + 20.0 * flip_factor,
+                                    player_translation.y,
+                                    player_translation.z,
+                                ),
+                                Vec2::new(40.0, 40.0),
+                                player,
+                                false,
+                            );
+                            player_layer.fin_offset = vec2(0.0, -2.0);
+                        }
                         _ => (),
                     }
 
@@ -323,23 +350,26 @@ fn update(
                 }
             }
         } else {
-            let body = bodies.get_mut(entity).unwrap();
-            sword.dropped_time += 1.0 / crate::FPS as f32;
+            let body = bodies.get(entity).unwrap();
+            sword.dropped_time += 1.0 / crate::FPS;
 
-            let is_on_floor = body.is_on_ground || body.is_on_platform;
-            let is_deals_damage = (is_on_floor && body.velocity.x != 0.0)
-                || (!is_on_floor && body.velocity != Vec2::ZERO);
-            if is_deals_damage && sword.dropped_time >= *arm_delay {
+            if body.velocity.length() >= *killing_speed {
                 collision_world
                     .actor_collisions(entity)
                     .into_iter()
-                    .filter(|&x| player_indexes.contains(x))
+                    .filter(|&x| {
+                        player_indexes.contains(x) && {
+                            let player_body = bodies.get(x).unwrap();
+                            (player_body.velocity - body.velocity).length() >= *killing_speed
+                        }
+                    })
                     .for_each(|player| player_events.kill(player));
             }
         }
 
         // If the item was dropped
         if let Some(dropped) = items_dropped.get(entity).copied() {
+            attachments.remove(entity);
             let player = dropped.player;
             sword.dropped_time = 0.0;
 
@@ -356,19 +386,21 @@ fn update(
             // Put sword in rest position
             sprite.index = 0;
 
+            let horizontal_flip_factor = if sprite.flip_x {
+                Vec2::new(-1.0, 1.0)
+            } else {
+                Vec2::ONE
+            };
+
             if player_velocity != Vec2::ZERO {
-                let horizontal_flip_factor = if sprite.flip_x {
-                    Vec2::new(-1.0, 1.0)
-                } else {
-                    Vec2::ONE
-                };
                 body.velocity = *throw_velocity * horizontal_flip_factor + player_velocity;
                 body.angular_velocity = *angular_velocity * if sprite.flip_x { -1.0 } else { 1.0 };
             }
             body.is_spawning = true;
 
             let transform = transforms.get_mut(entity).unwrap();
-            transform.translation = player_translation;
+            transform.translation =
+                player_translation + (*grab_offset * horizontal_flip_factor).extend(0.0);
         }
     }
 }

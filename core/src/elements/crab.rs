@@ -36,6 +36,7 @@ pub struct CrabCritter {
 }
 
 fn hydrate(
+    game_meta: Res<CoreMetaArc>,
     mut entities: ResMut<Entities>,
     mut hydrated: CompMut<MapElementHydrated>,
     mut element_handles: CompMut<ElementHandle>,
@@ -89,11 +90,12 @@ fn hydrate(
             bodies.insert(
                 entity,
                 KinematicBody {
-                    gravity: 1.0,
+                    gravity: game_meta.physics.gravity,
                     has_mass: true,
                     has_friction: true,
-                    size: Vec2::new(17.0, 12.0),
-                    offset: Vec2::new(0.0, 0.0),
+                    shape: ColliderShape::Rectangle {
+                        size: Vec2::new(17.0, 12.0),
+                    },
                     ..default()
                 },
             );
@@ -103,8 +105,7 @@ fn hydrate(
                 AnimatedSprite {
                     fps: *fps,
                     repeat: true,
-                    start: *start_frame,
-                    end: *end_frame,
+                    frames: (*start_frame..*end_frame).collect(),
                     ..default()
                 },
             );

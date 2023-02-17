@@ -46,7 +46,6 @@ fn hydrate(
             atlas,
             max_ammo,
             body_size,
-            body_offset,
             can_rotate,
             bounciness,
             ..
@@ -71,8 +70,7 @@ fn hydrate(
             bodies.insert(
                 entity,
                 KinematicBody {
-                    size: *body_size,
-                    offset: *body_offset,
+                    shape: ColliderShape::Rectangle { size: *body_size },
                     has_mass: true,
                     has_friction: true,
                     can_rotate: *can_rotate,
@@ -96,10 +94,11 @@ fn update(
     mut bodies: CompMut<KinematicBody>,
     mut transforms: CompMut<Transform>,
     mut audio_events: ResMut<AudioEvents>,
+    mut player_layers: CompMut<PlayerLayers>,
 
     player_inventories: PlayerInventories,
     mut items_used: CompMut<ItemUsed>,
-    mut attachments: CompMut<Attachment>,
+    mut attachments: CompMut<PlayerBodyAttachment>,
     mut items_dropped: CompMut<ItemDropped>,
 ) {
     for (entity, (musket, element_handle)) in entities.iter_with((&mut muskets, &element_handles)) {
@@ -115,6 +114,7 @@ fn update(
             shoot_lifetime,
 
 
+            fin_anim,
             grab_offset,
             throw_velocity,
             angular_velocity,
@@ -139,6 +139,7 @@ fn update(
         {
             let player = inventory.player;
             let body = bodies.get_mut(entity).unwrap();
+            player_layers.get_mut(player).unwrap().fin_anim = *fin_anim;
 
             // Deactivate collisions while being held
             body.is_deactivated = true;
@@ -146,9 +147,10 @@ fn update(
             // Attach to the player
             attachments.insert(
                 entity,
-                Attachment {
-                    entity: player,
+                PlayerBodyAttachment {
+                    player,
                     offset: grab_offset.extend(0.1),
+                    sync_animation: false,
                 },
             );
 
@@ -209,8 +211,7 @@ fn update(
                             animated_sprites.insert(
                                 ent,
                                 AnimatedSprite {
-                                    start: 0,
-                                    end: shoot_frames,
+                                    frames: (0..shoot_frames).collect(),
                                     fps: shoot_fps,
                                     repeat: false,
                                     ..default()
@@ -255,13 +256,13 @@ fn update(
             // Re-activate physics
             body.is_deactivated = false;
 
-            if player_velocity != Vec2::ZERO {
-                let horizontal_flip_factor = if player_sprite.flip_x {
-                    Vec2::new(-1.0, 1.0)
-                } else {
-                    Vec2::ONE
-                };
+            let horizontal_flip_factor = if player_sprite.flip_x {
+                Vec2::new(-1.0, 1.0)
+            } else {
+                Vec2::ONE
+            };
 
+            if player_velocity != Vec2::ZERO {
                 body.velocity = *throw_velocity * horizontal_flip_factor + player_velocity;
                 body.angular_velocity =
                     *angular_velocity * if player_sprite.flip_x { -1.0 } else { 1.0 };
@@ -270,7 +271,8 @@ fn update(
             body.is_spawning = true;
 
             let transform = transforms.get_mut(entity).unwrap();
-            transform.translation = player_translation;
+            transform.translation =
+                player_translation + (*grab_offset * horizontal_flip_factor).extend(0.0);
         }
     }
 }
