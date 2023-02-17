@@ -95,9 +95,3 @@ bones_lib = { git = "https://github.com/fishfolk/bones" }
 bones_bevy_asset = { git = "https://github.com/fishfolk/bones" }
 type_ulid = { git = "https://github.com/fishfolk/bones" }
 bones_bevy_renderer = { git = "https://github.com/fishfolk/bones" }
-
-[patch.crates-io]
-bones_lib = { git = "https://github.com/fishfolk/bones" }
-bones_bevy_asset = { git = "https://github.com/fishfolk/bones" }
-type_ulid = { git = "https://github.com/fishfolk/bones" }
-bones_bevy_renderer = { git = "https://github.com/fishfolk/bones" }
